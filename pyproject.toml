@@ -1,6 +1,6 @@
 [project]
 name = "everything-search-mcp"
-version = "0.0.1"
+version = "0.0.2"
 description = "基于 Everything 搜索引擎的 MCP (Model Context Protocol) 服务器，让 AI 助手能够搜索本地文件。"
 readme = "README.md"
 license = { text = "MIT" }

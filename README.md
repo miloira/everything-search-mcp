@@ -6,38 +6,13 @@
 
 - **Windows 系统**（Everything 仅支持 Windows）
 - **[Everything](https://www.voidtools.com/)** 已安装并正在运行
-- **Python >= 3.12**
-
-## 安装
-
-```bash
-pip install everything-search-mcp
-```
-
-或使用 `uv`：
-
-```bash
-uv pip install everything-search-mcp
-```
+- **[uv](https://docs.astral.sh/uv/getting-started/installation/)** 已安装（提供 `uvx` 命令）
 
 ## MCP 配置
 
 ### Claude Desktop
 
 编辑 Claude Desktop 配置文件（通常位于 `%APPDATA%\Claude\claude_desktop_config.json`）：
-
-```json
-{
-  "mcpServers": {
-    "everything": {
-      "command": "everything-search-mcp",
-      "disabled": false
-    }
-  }
-}
-```
-
-如果使用 `uvx` 运行（无需预先安装）：
 
 ```json
 {
@@ -59,19 +34,6 @@ uv pip install everything-search-mcp
 {
   "mcpServers": {
     "everything": {
-      "command": "everything-search-mcp",
-      "disabled": false
-    }
-  }
-}
-```
-
-使用 `uvx`：
-
-```json
-{
-  "mcpServers": {
-    "everything": {
       "command": "uvx",
       "args": ["everything-search-mcp"],
       "disabled": false
@@ -88,7 +50,8 @@ uv pip install everything-search-mcp
 {
   "mcpServers": {
     "everything": {
-      "command": "everything-search-mcp",
+      "command": "uvx",
+      "args": ["everything-search-mcp"],
       "disabled": false
     }
   }
@@ -98,21 +61,6 @@ uv pip install everything-search-mcp
 ### OpenCode
 
 编辑项目根目录下的 `opencode.json`（或全局配置）：
-
-```json
-{
-  "$schema": "https://opencode.ai/config.json",
-  "mcp": {
-    "everything": {
-      "type": "local",
-      "command": ["everything-search-mcp"],
-      "enabled": true
-    }
-  }
-}
-```
-
-使用 `uvx`：
 
 ```json
 {
@@ -136,7 +84,8 @@ uv pip install everything-search-mcp
   "mcp": {
     "servers": {
       "everything": {
-        "command": "everything-search-mcp"
+        "command": "uvx",
+        "args": ["everything-search-mcp"]
       }
     }
   }
@@ -168,16 +117,82 @@ uv pip install everything-search-mcp
 | `max_results` | int | 10 | 最大返回数量 |
 | `return_properties` | list | 默认字段 | 返回的字段列表 |
 
+
 ### `complex_search`
 
-高级组合搜索，通过 `filters` 列表组合多种过滤条件：
+高级组合搜索，通过 `filters` 列表组合多种过滤条件。
 
-- **keywords** — 关键词搜索
-- **file_filter** — 按扩展名、大小范围、文件内容过滤
-- **date_filter** — 按创建/修改/访问日期范围过滤
-- **size_filter** — 按文件大小过滤（支持 kb/mb/gb 单位）
-- **media_filter** — 按媒体类型过滤（image/audio/video）
-- **document_filter** — 按文档类型过滤（office/pdf/text）
+基础参数：
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `keywords` | list[str] | `[]` | 搜索关键词列表，如 `["test.py", "hello"]` |
+| `filters` | list[dict] | `[]` | 过滤器列表，详见下方 |
+| `match_case` | bool | False | 区分大小写 |
+| `match_path` | bool | False | 匹配完整路径 |
+| `match_whole_word` | bool | False | 全词匹配 |
+| `regex` | bool | False | 启用正则表达式 |
+| `sort_type` | int | 1 | 排序方式（见排序类型参考） |
+| `max_results` | int | 10 | 最大返回数量 |
+| `return_properties` | list[str] | 默认字段 | 返回的字段列表 |
+
+每个 filter 是一个 `{"type": "...", "params": ...}` 结构，支持以下类型：
+
+#### file_filter — 文件属性过滤
+
+| params 键 | 类型 | 说明 |
+|-----------|------|------|
+| `with_extensions` | list[str] | 扩展名列表，如 `[".py", ".txt"]` |
+| `with_size_range` | dict | `{"min_size": 字节数, "max_size": 字节数}` |
+| `with_content` | str | 文件内容关键词（仅文本文件） |
+| `duplicates_only` | bool | 是否仅显示重复文件 |
+
+```json
+{"type": "file_filter", "params": {"with_extensions": [".py"], "with_content": "import"}}
+```
+
+#### date_filter — 日期过滤
+
+| params 键 | 类型 | 说明 |
+|-----------|------|------|
+| `by_date` | str | `"modified_date"` / `"created_date"` / `"accessed_date"` |
+| `in_range` | list[str] | `["开始日期", "结束日期"]`，格式 `YYYY-MM-DD` |
+
+```json
+{"type": "date_filter", "params": {"by_date": "modified_date", "in_range": ["2025-01-01", "2025-12-31"]}}
+```
+
+#### size_filter — 大小过滤
+
+通过 `gt`（大于）和 `lt`（小于）设置范围，单位为字节。
+
+| params 键 | 类型 | 说明 |
+|-----------|------|------|
+| `gt` | int | 最小字节数 |
+| `lt` | int | 最大字节数 |
+
+```json
+{"type": "size_filter", "params": {"gt": 104857600}}
+```
+
+#### media_filter — 媒体文件过滤
+
+| params 键 | 类型 | 可选值 |
+|-----------|------|--------|
+| `file_type` | str | `"image"` / `"audio"` / `"video"` / `"all"` |
+
+```json
+{"type": "media_filter", "params": {"file_type": "video"}}
+```
+
+#### document_filter — 文档文件过滤
+
+| params 键 | 类型 | 可选值 |
+|-----------|------|--------|
+| `file_type` | str | `"office"` / `"pdf"` / `"text"` / `"all"` |
+
+```json
+{"type": "document_filter", "params": {"file_type": "pdf"}}
 
 ## 使用示例
 

@@ -127,6 +127,7 @@ def search(
 
 @mcp.tool()
 def complex_search(
+        keywords: list[str] = None,
         filters: list[dict] = None,
         match_case: bool = False,
         match_path: bool = False,
@@ -138,11 +139,11 @@ def complex_search(
 ) -> str:
     """使用 Everything 进行复杂组合搜索。
 
-    通过 filters 列表组合多种过滤条件，支持关键词、文件属性、日期、大小、媒体类型、文档类型。
+    通过 keywords 指定搜索关键词，通过 filters 列表组合多种过滤条件。
 
     Args:
+        keywords: 搜索关键词列表，如 ["test.py", "hello"]。
         filters: 过滤器列表，每个过滤器是一个 dict，包含 type 和 params。支持的类型:
-            - keywords: 关键词搜索。params 为关键词字符串列表，如 ["test.py", "hello"]。
             - file_filter: 文件属性过滤。params 为 dict，可选键:
                 - with_extensions: 扩展名列表，如 [".py", ".txt"]
                 - with_size_range: {"min_size": 字节数, "max_size": 字节数}
@@ -152,8 +153,8 @@ def complex_search(
                 - by_date: "modified_date" 或 "created_date" 或 "accessed_date"
                 - in_range: [开始日期, 结束日期]，格式 "YYYY-MM-DD"
             - size_filter: 大小过滤。params 为 dict，可选键:
-                - gt: {"value": 数值, "unit": "kb"/"mb"/"gb"}
-                - lt: {"value": 数值, "unit": "kb"/"mb"/"gb"}
+                - gt: 最小字节数
+                - lt: 最大字节数
             - media_filter: 媒体文件过滤。params 为 dict:
                 - file_type: "image"/"audio"/"video"/"all"
             - document_filter: 文档文件过滤。params 为 dict:
@@ -169,6 +170,7 @@ def complex_search(
     Returns:
         ASCII 表格格式的搜索结果字符串。
     """
+    keywords = keywords or []
     filters = filters or []
     return_properties = return_properties or [
         "name", "path", "full_path", "is_file", "is_folder", "is_volume",
@@ -176,6 +178,8 @@ def complex_search(
     ]
 
     builder = SearchBuilder()
+    if keywords:
+        builder.keywords(*keywords)
     builder.match_case(match_case)
     builder.match_path(match_path)
     builder.match_whole_word(match_whole_word)
@@ -183,16 +187,11 @@ def complex_search(
     builder.sort_by(SortType(sort_type))
     builder.limit(max_results)
 
-    unit_multiplier = {"kb": 1024, "mb": 1024 * 1024, "gb": 1024 * 1024 * 1024}
-
     for f in filters:
         f_type = f.get("type")
         params = f.get("params")
 
-        if f_type == "keywords":
-            builder.keywords(*params)
-
-        elif f_type == "file_filter":
+        if f_type == "file_filter":
             ff = FileFilter()
             if "with_extensions" in params:
                 ff.with_extensions(*params["with_extensions"])
@@ -221,14 +220,8 @@ def complex_search(
 
         elif f_type == "size_filter":
             sf = SizeFilter()
-            min_bytes = None
-            max_bytes = None
-            if "gt" in params:
-                gt = params["gt"]
-                min_bytes = int(gt["value"] * unit_multiplier.get(gt.get("unit", "kb"), 1))
-            if "lt" in params:
-                lt = params["lt"]
-                max_bytes = int(lt["value"] * unit_multiplier.get(lt.get("unit", "kb"), 1))
+            min_bytes = params.get("gt")
+            max_bytes = params.get("lt")
             if min_bytes is not None and max_bytes is not None:
                 sf.between(min_bytes, max_bytes)
             elif min_bytes is not None:
